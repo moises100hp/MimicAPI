@@ -28,20 +28,29 @@ namespace MimicAPi.Controllers
 
         
         //APP
-        [Route("")]
-        [HttpGet]
+        [HttpGet("", Name = "ObterTodas")]
         public ActionResult ObterTodas([FromQuery]PalavraUrlQuery query)
         {
             var item = _repository.ObterPalavras(query);
 
-            if (query.PagNumero > item.Paginacao.TotalPaginas)
-            {
+
+            if (item.Results.Count == 0)
                 return NotFound();
+
+            if(item.Paginacao != null)
+                Response.Headers.Add("x-Pagination", JsonConvert.SerializeObject(item.Paginacao));
+
+            var lista = _mapper.Map<PaginationList<Palavra>, PaginationList<PalavraDTO>>(item);
+
+            foreach (var palavra in lista.Results)
+            {
+                palavra.Links = new List<LinkDTO>();
+                palavra.Links.Add(new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavra.Id }), "GET"));
             }
 
-            Response.Headers.Add("x-Pagination", JsonConvert.SerializeObject(item.Paginacao));
+            lista.Links.Add(new LinkDTO("self", Url.Link("ObterTodas", query), "GET"));
 
-            return Ok(item.ToList());
+            return Ok(lista);
         }
         //
         [Route("{id}")]
