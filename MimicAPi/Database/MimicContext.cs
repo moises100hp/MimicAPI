@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MimicAPi.Models;
+using MimicAPi.V1.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

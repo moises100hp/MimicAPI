@@ -1,19 +1,23 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MimicAPi.Helpers;
-using MimicAPi.Models;
+using MimicAPi.V1.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MimicAPi.Repositories.Contracts;
+using MimicAPi.V1.Repositories.Contracts;
 using AutoMapper;
-using MimicAPi.Models.DTO;
+using MimicAPi.V1.Models.DTO;
 
-namespace MimicAPi.Controllers
+namespace MimicAPi.V1.Controllers
 {
-    [Route("api/palavras")]
+    // /api/v1.0/palavras
+
+    [ApiController]
+    [Route("api/v{version:apiVersion}/{controller}")]
+    [ApiVersion("1.0")]
 
     public class PalavrasController : ControllerBase
     {
@@ -36,10 +40,13 @@ namespace MimicAPi.Controllers
 
             if (item.Results.Count == 0)
                 return NotFound();
+            PaginationList<PalavraDTO> lista = CriarLinksListPalavraDTO(query, item);
 
-            if(item.Paginacao != null)
-                Response.Headers.Add("x-Pagination", JsonConvert.SerializeObject(item.Paginacao));
+            return Ok(lista);
+        }
 
+        private PaginationList<PalavraDTO> CriarLinksListPalavraDTO(PalavraUrlQuery query, PaginationList<Palavra> item)
+        {
             var lista = _mapper.Map<PaginationList<Palavra>, PaginationList<PalavraDTO>>(item);
 
             foreach (var palavra in lista.Results)
@@ -50,8 +57,25 @@ namespace MimicAPi.Controllers
 
             lista.Links.Add(new LinkDTO("self", Url.Link("ObterTodas", query), "GET"));
 
-            return Ok(lista);
+            if (item.Paginacao != null)
+            {
+                Response.Headers.Add("x-Pagination", JsonConvert.SerializeObject(item.Paginacao));
+
+                if (query.PagNumero + 1 <= item.Paginacao.TotalPaginas)
+                {
+                    var queryString = new PalavraUrlQuery() { PagNumero = query.PagNumero + 1, PagRegistro = query.PagRegistro, Data = query.Data };
+                    lista.Links.Add(new LinkDTO("next", Url.Link("ObterTodas", queryString), "GET"));
+                }
+                if (query.PagNumero - 1 > 0)
+                {
+                    var queryString = new PalavraUrlQuery() { PagNumero = query.PagNumero - 1, PagRegistro = query.PagRegistro, Data = query.Data };
+                    lista.Links.Add(new LinkDTO("prev", Url.Link("ObterTodas", queryString), "GET"));
+                }
+            }
+
+            return lista;
         }
+
         //
         [Route("{id}")]
         [HttpGet("{id}", Name = "ObterPalavra")]
@@ -63,7 +87,6 @@ namespace MimicAPi.Controllers
                 return NotFound();
 
             PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(obj);
-            palavraDTO.Links = new List<LinkDTO>();
             palavraDTO.Links.Add(
                 new LinkDTO("self", Url.Link("ObterPalavra", new  { id = palavraDTO.Id}), "GET")
                 );
@@ -76,17 +99,31 @@ namespace MimicAPi.Controllers
 
             return Ok(palavraDTO);
         }
-        [Route("{id}")]
-        [HttpDelete]
+
+        [Route("")]
+        [HttpPost]
         public ActionResult Cadastrar([FromBody]Palavra palavra)
         {
+            if (palavra == null)
+                return BadRequest();
+
+            if (!ModelState.IsValid)
+                return UnprocessableEntity(ModelState);
+
+            palavra.Ativo = true;
+            palavra.Criado = DateTime.Now;
             _repository.Cadastrar(palavra);
+
+            PalavraDTO palavraDTO =  _mapper.Map<Palavra, PalavraDTO>(palavra);
+            palavraDTO.Links.Add(
+              new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
+              );
 
             return Created($"/api/palavras/{palavra.Id}", palavra);
         }
 
         [Route("{id}")]
-        [HttpPost("{id}", Name = "AtualizarPalavra")]
+        [HttpPut("{id}", Name = "AtualizarPalavra")]
         public ActionResult Atualizar(int id, [FromBody]Palavra palavra)
         {
            var obj = _repository.Obter(id);
@@ -94,14 +131,30 @@ namespace MimicAPi.Controllers
             if (obj == null)
                 return NotFound();
 
+            if (palavra == null)
+                return BadRequest();
+
+            if (!ModelState.IsValid)
+                return UnprocessableEntity(ModelState);
+
             palavra.Id = id;
+            palavra.Ativo = obj.Ativo;
+            palavra.Criado = obj.Criado;
+            palavra.Atualizado = DateTime.Now;
             _repository.Atualizar(palavra);
+
+            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(palavra);
+            palavraDTO.Links.Add(
+             new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
+             );
+
+
 
             return Ok();
         }
 
         [Route("{id}")]
-        [HttpPost("{id}", Name = "ExcluirPalavra")]
+        [HttpDelete("{id}", Name = "ExcluirPalavra")]
         public ActionResult Deletar(int id)
         {
             var palavra = _repository.Obter(id);
@@ -113,6 +166,7 @@ namespace MimicAPi.Controllers
 
             return NoContent();
         }
+
 
 
     }
