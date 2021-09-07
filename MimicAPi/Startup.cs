@@ -8,6 +8,7 @@ using MimicAPi.V1.Repositories;
 using MimicAPi.V1.Repositories.Contracts;
 using AutoMapper;
 using MimicAPi.Helpers;
+using Microsoft.AspNetCore.Mvc.Versioning;
 
 namespace MimicAPi
 {
@@ -36,6 +37,8 @@ namespace MimicAPi
             services.AddApiVersioning(cfg =>
             {
                 cfg.ReportApiVersions = true;
+                cfg.ApiVersionReader = new HeaderApiVersionReader("api-version");
+                cfg.AssumeDefaultVersionWhenUnspecified = true;
                 cfg.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
             });
         }

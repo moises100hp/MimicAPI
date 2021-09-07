@@ -17,6 +17,7 @@ namespace MimicAPi.V1.Controllers
 
     [ApiController]
     [Route("api/v{version:apiVersion}/[controller]")]
+    //[Route("api/[controller]")]
     [ApiVersion("1.0", Deprecated = true)]
     [ApiVersion("1.1")]
 
