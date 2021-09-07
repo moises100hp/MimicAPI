@@ -32,10 +32,17 @@ namespace MimicAPi.V1.Controllers
             _mapper = mapper;
         }
 
-        
+        /// <summary>
+        /// Operação que pega do banco de dados todas as palavras existentes
+        /// </summary>
+        /// <param name="query">Filtros de pesquisa</param>
+        /// <returns>Listagem de palavras</returns>
+
         //APP
+        [MapToApiVersion("1.0")]
+        [MapToApiVersion("1.1")]
         [HttpGet("", Name = "ObterTodas")]
-        public ActionResult ObterTodas([FromQuery]PalavraUrlQuery query)
+        public ActionResult ObterTodas([FromQuery] PalavraUrlQuery query)
         {
             var item = _repository.ObterPalavras(query);
 
@@ -45,6 +52,127 @@ namespace MimicAPi.V1.Controllers
             PaginationList<PalavraDTO> lista = CriarLinksListPalavraDTO(query, item);
 
             return Ok(lista);
+        }
+
+        /// <summary>
+        /// Opetação que pega uma única palavra da base de dados
+        /// </summary>
+        /// <param name="id">Código identificador da palavra</param>
+        /// <returns>Objeto palavra</returns>
+
+        [MapToApiVersion("1.0")]
+        [MapToApiVersion("1.1")]
+        [HttpGet("{id}", Name = "ObterPalavra")]
+        public ActionResult Obter(int id)
+        {
+            var obj = _repository.Obter(id);
+
+            if (obj == null)
+                return NotFound();
+
+            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(obj);
+            palavraDTO.Links.Add(
+                new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
+                );
+            palavraDTO.Links.Add(
+               new LinkDTO("update", Url.Link("AtualizarPalavra", new { id = palavraDTO.Id }), "PUT")
+               );
+            palavraDTO.Links.Add(
+               new LinkDTO("delete", Url.Link("ExcluirPalavra", new { id = palavraDTO.Id }), "DELETE")
+               );
+
+            return Ok(palavraDTO);
+        }
+
+        /// <summary>
+        /// Operação que realiza o cadastro da palavra
+        /// </summary>
+        /// <param name="palavra">Um objeto palavra</param>
+        /// <returns>Um objeto palavra com seu id</returns>
+
+        [MapToApiVersion("1.0")]
+        [MapToApiVersion("1.1")]
+        [Route("")]
+        [HttpPost]
+        public ActionResult Cadastrar([FromBody] Palavra palavra)
+        {
+            if (palavra == null)
+                return BadRequest();
+
+            if (!ModelState.IsValid)
+                return UnprocessableEntity(ModelState);
+
+            palavra.Ativo = true;
+            palavra.Criado = DateTime.Now;
+            _repository.Cadastrar(palavra);
+
+            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(palavra);
+            palavraDTO.Links.Add(
+              new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
+              );
+
+            return Created($"/api/palavras/{palavra.Id}", palavra);
+        }
+
+        /// <summary>
+        /// Operação que realiza a substituição de dados de uma palavra específica
+        /// </summary>
+        /// <param name="id">Código identificador da palavra a ser alterada</param>
+        /// <param name="palavra">Objeto palavra com dados para alteração</param>
+        /// <returns></returns>
+
+        [MapToApiVersion("1.0")]
+        [MapToApiVersion("1.1")]
+        [Route("{id}")]
+        [HttpPut("{id}", Name = "AtualizarPalavra")]
+        public ActionResult Atualizar(int id, [FromBody] Palavra palavra)
+        {
+            var obj = _repository.Obter(id);
+
+            if (obj == null)
+                return NotFound();
+
+            if (palavra == null)
+                return BadRequest();
+
+            if (!ModelState.IsValid)
+                return UnprocessableEntity(ModelState);
+
+            palavra.Id = id;
+            palavra.Ativo = obj.Ativo;
+            palavra.Criado = obj.Criado;
+            palavra.Atualizado = DateTime.Now;
+            _repository.Atualizar(palavra);
+
+            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(palavra);
+            palavraDTO.Links.Add(
+             new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
+             );
+
+
+
+            return Ok();
+        }
+
+        /// <summary>
+        /// Operação que desativa uma palavra do sistema
+        /// </summary>
+        /// <param name="id">Código identificador da palavra</param>
+        /// <returns></returns>
+
+        [MapToApiVersion("1.1")]
+        [Route("{id}")]
+        [HttpDelete("{id}", Name = "ExcluirPalavra")]
+        public ActionResult Deletar(int id)
+        {
+            var palavra = _repository.Obter(id);
+
+            if (palavra == null)
+                return NotFound();
+
+            _repository.Deletar(id);
+
+            return NoContent();
         }
 
         private PaginationList<PalavraDTO> CriarLinksListPalavraDTO(PalavraUrlQuery query, PaginationList<Palavra> item)
@@ -77,105 +205,6 @@ namespace MimicAPi.V1.Controllers
 
             return lista;
         }
-
-        [MapToApiVersion("1.0")]
-        [MapToApiVersion("1.1")]
-        [Route("{id}")]
-        [HttpGet("{id}", Name = "ObterPalavra")]
-        public ActionResult Obter(int id)
-        {
-            var obj = _repository.Obter(id);
-
-            if (obj == null)
-                return NotFound();
-
-            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(obj);
-            palavraDTO.Links.Add(
-                new LinkDTO("self", Url.Link("ObterPalavra", new  { id = palavraDTO.Id}), "GET")
-                );
-            palavraDTO.Links.Add(
-               new LinkDTO("update", Url.Link("AtualizarPalavra", new { id = palavraDTO.Id}), "PUT")
-               );
-            palavraDTO.Links.Add(
-               new LinkDTO("delete", Url.Link("ExcluirPalavra", new { id = palavraDTO.Id}), "DELETE")
-               );
-
-            return Ok(palavraDTO);
-        }
-
-        [MapToApiVersion("1.0")]
-        [MapToApiVersion("1.1")]
-        [Route("")]
-        [HttpPost]
-        public ActionResult Cadastrar([FromBody]Palavra palavra)
-        {
-            if (palavra == null)
-                return BadRequest();
-
-            if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
-
-            palavra.Ativo = true;
-            palavra.Criado = DateTime.Now;
-            _repository.Cadastrar(palavra);
-
-            PalavraDTO palavraDTO =  _mapper.Map<Palavra, PalavraDTO>(palavra);
-            palavraDTO.Links.Add(
-              new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
-              );
-
-            return Created($"/api/palavras/{palavra.Id}", palavra);
-        }
-
-        [MapToApiVersion("1.0")]
-        [MapToApiVersion("1.1")]
-        [Route("{id}")]
-        [HttpPut("{id}", Name = "AtualizarPalavra")]
-        public ActionResult Atualizar(int id, [FromBody]Palavra palavra)
-        {
-           var obj = _repository.Obter(id);
-
-            if (obj == null)
-                return NotFound();
-
-            if (palavra == null)
-                return BadRequest();
-
-            if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
-
-            palavra.Id = id;
-            palavra.Ativo = obj.Ativo;
-            palavra.Criado = obj.Criado;
-            palavra.Atualizado = DateTime.Now;
-            _repository.Atualizar(palavra);
-
-            PalavraDTO palavraDTO = _mapper.Map<Palavra, PalavraDTO>(palavra);
-            palavraDTO.Links.Add(
-             new LinkDTO("self", Url.Link("ObterPalavra", new { id = palavraDTO.Id }), "GET")
-             );
-
-
-
-            return Ok();
-        }
-
-        [MapToApiVersion("1.1")]
-        [Route("{id}")]
-        [HttpDelete("{id}", Name = "ExcluirPalavra")]
-        public ActionResult Deletar(int id)
-        {
-            var palavra = _repository.Obter(id);
-
-            if (palavra == null)
-                return NotFound();
-
-            _repository.Deletar(id);
-
-            return NoContent();
-        }
-
-
 
     }
 }

@@ -9,6 +9,10 @@ using MimicAPi.V1.Repositories.Contracts;
 using AutoMapper;
 using MimicAPi.Helpers;
 using Microsoft.AspNetCore.Mvc.Versioning;
+using System.Linq;
+using MimicAPi.Helpers.Swagger;
+using Microsoft.Extensions.PlatformAbstractions;
+using System.IO;
 
 namespace MimicAPi
 {
@@ -37,9 +41,52 @@ namespace MimicAPi
             services.AddApiVersioning(cfg =>
             {
                 cfg.ReportApiVersions = true;
-                cfg.ApiVersionReader = new HeaderApiVersionReader("api-version");
+
+               // cfg.ApiVersionReader = new HeaderApiVersionReader("api-version");
                 cfg.AssumeDefaultVersionWhenUnspecified = true;
                 cfg.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
+            });
+
+            services.AddSwaggerGen(cfg => {
+                cfg.ResolveConflictingActions(apiDescription => apiDescription.FirstOrDefault());
+                cfg.SwaggerDoc("v2.0", new Swashbuckle.AspNetCore.Swagger.Info()
+                {
+                    Title = "MimicAPI - V2.0",
+                    Version = "v2.0"
+                });
+                cfg.SwaggerDoc("v1.1", new Swashbuckle.AspNetCore.Swagger.Info()
+                {
+                    Title = "MimicAPI - V1.1",
+                    Version = "v1.1"
+                });
+                cfg.SwaggerDoc("v1.0", new Swashbuckle.AspNetCore.Swagger.Info() {
+                    Title = "MimicAPI - V1.0",
+                    Version = "v1.0"
+                });
+
+                var CaminhoProjeto = PlatformServices.Default.Application.ApplicationBasePath;
+                var NomeProjeto = $"{PlatformServices.Default.Application.ApplicationName}.xml";
+                var CaminhoArquivoXMLComentario = Path.Combine(CaminhoProjeto, NomeProjeto);
+                
+                cfg.IncludeXmlComments(CaminhoArquivoXMLComentario);
+
+                cfg.DocInclusionPredicate((docName, apiDesc) =>
+                 {
+                     var actionApiVersionModel = apiDesc.ActionDescriptor?.GetApiVersion();
+                     // would mean this action is unversioned and should be included everywhere
+                     if (actionApiVersionModel == null)
+                     {
+                         return true;
+                     }
+                     if (actionApiVersionModel.DeclaredApiVersions.Any())
+                     {
+                         return actionApiVersionModel.DeclaredApiVersions.Any(v => $"v{v.ToString()}" == docName);
+                     }
+                     return actionApiVersionModel.ImplementedApiVersions.Any(v => $"v{v.ToString()}" == docName);
+                 });
+
+                cfg.OperationFilter<ApiVersionOperationFilter>();
+
             });
         }
 
@@ -50,8 +97,18 @@ namespace MimicAPi
             {
                 app.UseDeveloperExceptionPage();
             }
+            app.UseStatusCodePages();
 
             app.UseMvc();
+
+            app.UseSwagger(); // /swagger/v1/swagger.json
+            app.UseSwaggerUI(cfg =>
+            {
+                cfg.SwaggerEndpoint("/swagger/v2.0/swagger.json", "MimicAPI v2.0");
+                cfg.SwaggerEndpoint("/swagger/v1.1/swagger.json", "MimicAPI v1.1");
+                cfg.SwaggerEndpoint("/swagger/v1.0/swagger.json", "MimicAPI v1.0");
+                cfg.RoutePrefix = string.Empty;
+            });
         }
     }
 }

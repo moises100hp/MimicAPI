@@ -14,7 +14,16 @@ namespace MimicAPi.V2.Controllers
     public class PalavrasController : ControllerBase
     {
 
+
+        /// <summary>
+        /// Operação que pega do banco de dados todas as palavras existentes
+        /// </summary>
+        /// <param name="query">Filtros de pesquisa</param>
+        /// <returns>Listagem de palavras</returns>
+
+
         //APP
+        [MapToApiVersion("2.0")]
         [HttpGet("", Name = "ObterTodas")]
         public string ObterTodas()
         {
